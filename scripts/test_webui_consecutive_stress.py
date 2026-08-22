@@ -61,13 +61,13 @@ async def run_stress_test():
     tasks_spec = [
         ("asr", {"audio_asset_ids": [asr_asset.id], "max_new_tokens": 15}),
         ("understand", {"audio_asset_ids": [qa_asset.id], "prompt": "这个音频中有几个说话人？", "enable_thinking": True, "max_new_tokens": 30}),
-        ("tts", {"prompt_audio_asset_id": tts_asset.id, "prompt_text": "收到你的来信，我很高兴。", "target_text": "第一条连续语音合成测试。", "n_timesteps": 4, "max_new_audio_steps": 40}),
+        ("tts", {"prompt_audio_asset_id": tts_asset.id, "prompt_text": "同时，他强调微调要科学有序。", "target_text": "第一条连续语音合成测试。", "n_timesteps": 4, "max_new_audio_steps": 40}),
         ("edit_acoustic", {"audio_asset_id": edit_ac_asset.id, "mode": "speed", "speed": 0.5, "n_timesteps": 4, "max_new_audio_steps": 40}),
         ("edit_semantic", {"audio_asset_id": edit_sem_asset.id, "instruction": "delete '比普通的茶叶要'", "n_timesteps": 4, "max_new_audio_steps": 60, "max_new_text_tokens": 256}),
         ("voice_design", {"instruction": "温柔知性的广播女主播声音", "text": "音色设计稳定性测试。", "n_timesteps": 4, "max_new_audio_steps": 60, "max_new_text_tokens": 256}),
         ("asr", {"audio_asset_ids": [asr_asset.id], "max_new_tokens": 15}),
         ("understand", {"audio_asset_ids": [qa_asset.id], "prompt": "这个音频中有几个人说话？", "enable_thinking": False, "max_new_tokens": 20}),
-        ("tts", {"prompt_audio_asset_id": tts_asset.id, "prompt_text": "收到你的来信，我很高兴。", "target_text": "第二条连续语音克隆测试。", "n_timesteps": 4, "max_new_audio_steps": 40}),
+        ("tts", {"prompt_audio_asset_id": tts_asset.id, "prompt_text": "同时，他强调微调要科学有序。", "target_text": "第二条连续语音克隆测试。", "n_timesteps": 4, "max_new_audio_steps": 40}),
         ("edit_acoustic", {"audio_asset_id": edit_ac_asset.id, "mode": "pitch", "pitch": 2, "n_timesteps": 4, "max_new_audio_steps": 40}),
     ]
 

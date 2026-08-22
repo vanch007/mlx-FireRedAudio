@@ -54,7 +54,7 @@ def test_optimizations():
     # Benchmark TTS 8-bit
     t0 = time.time()
     res_tts_8bit = engine_bf16.tts(
-        prompt_text="收到你的来信，我很高兴。",
+        prompt_text="同时，他强调微调要科学有序。",
         prompt_audio="assets/examples/tts_zh_prompt.wav",
         target_text="你好，这是八比特量化语音合成测试。",
         n_timesteps=4,
@@ -80,7 +80,7 @@ def test_optimizations():
 
     t0 = time.time()
     res_tts_4bit = engine_4bit.tts(
-        prompt_text="收到你的来信，我很高兴。",
+        prompt_text="同时，他强调微调要科学有序。",
         prompt_audio="assets/examples/tts_zh_prompt.wav",
         target_text="你好，这是四比特量化语音合成测试。",
         n_timesteps=4,

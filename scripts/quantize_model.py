@@ -50,6 +50,10 @@ def quantize_and_export(
     with open(src_path / "config.json", "r", encoding="utf-8") as f:
         config = json.load(f)
     config["quantization"] = {"bits": bits, "group_size": group_size}
+    config["qwen35_norm_format"] = "effective_scale_v2"
+    # Newly exported weights already include every Qwen3.5 zero-centered norm
+    # shift.  Do not inherit compatibility corrections from an older artifact.
+    config.pop("mlx_native_weight_corrections", None)
     with open(out_path / "config.json", "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 

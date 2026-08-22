@@ -260,7 +260,8 @@ class RedDiTMLX(nn.Module):
         inference_cfg: float = 2.0,
     ) -> mx.array:
         b = backbone_output.shape[0]
-        t_span = mx.linspace(0.0, 1.0, n_timesteps + 1)
+        model_dtype = backbone_output.dtype
+        t_span = mx.linspace(0.0, 1.0, n_timesteps + 1).astype(model_dtype)
         t_span = 1.0 - mx.cos(t_span * 0.5 * math.pi)
 
         backbone_pad_len = 3 - backbone_output.shape[1]
@@ -268,7 +269,9 @@ class RedDiTMLX(nn.Module):
             backbone_output = mx.pad(backbone_output, [(0, 0), (backbone_pad_len, 0), (0, 0)])
 
         if history_vae_latents is None:
-            history_vae_latents = mx.zeros((b, 8, self.vae_channels))
+            history_vae_latents = mx.zeros(
+                (b, 8, self.vae_channels), dtype=model_dtype
+            )
         elif history_vae_latents.shape[1] < 8:
             pad_len = 8 - history_vae_latents.shape[1]
             history_vae_latents = mx.pad(history_vae_latents, [(0, 0), (pad_len, 0), (0, 0)])
@@ -276,7 +279,9 @@ class RedDiTMLX(nn.Module):
         dit_backbone_cond = mx.repeat(backbone_output[:, -3:], self.patch_size, axis=1)
         dit_cond = self.backbone_input_proj(dit_backbone_cond)
 
-        noise = mx.random.normal((b, self.patch_size, self.vae_channels))
+        noise = mx.random.normal(
+            (b, self.patch_size, self.vae_channels)
+        ).astype(history_vae_latents.dtype)
         x0 = mx.concatenate([history_vae_latents[:, -8:], noise], axis=1)
 
         xt = mx.concatenate([x0, dit_cond], axis=-1)

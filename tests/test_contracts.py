@@ -6,11 +6,12 @@ import numpy as np
 from fireredaudio_mlx.data.prompt_encoder import (
     build_edit_prompt,
     build_tts_prompt,
+    build_voice_design_prompt,
     split_thinking,
 )
-from fireredaudio_mlx.models.modeling import sanitize_weights
+from fireredaudio_mlx.models.modeling import apply_native_weight_corrections, sanitize_weights
 from fireredaudio_mlx.models.audio_encoder import FireRedAudioEncoderMLX
-from fireredaudio_mlx.models.redae import ISTFTHeadMLX
+from fireredaudio_mlx.models.redae import ISTFTHeadMLX, create_causal_mask
 
 
 class PromptContractTests(unittest.TestCase):
@@ -28,6 +29,12 @@ class PromptContractTests(unittest.TestCase):
         self.assertIn("<|sosp|><|AUDIO_NO_LATENT|><|eosp|>", prompt)
         self.assertTrue(prompt.endswith("<think>\n\n</think>\n\n"))
 
+    def test_voice_design_starts_in_text_mode(self):
+        prompt = build_voice_design_prompt("温柔女声", "你好")
+        self.assertIn("根据上述音色描述，合成以下文本对应的音频：", prompt)
+        self.assertTrue(prompt.endswith("<think>\n\n</think>\n\n"))
+        self.assertFalse(prompt.endswith("<|sosp|>"))
+
 
 class WeightSanitizationTests(unittest.TestCase):
     def test_qwen35_zero_centered_norm_is_shifted(self):
@@ -40,6 +47,31 @@ class WeightSanitizationTests(unittest.TestCase):
         key = "red_vae.qwen3.layers.0.input_layernorm.weight"
         result = sanitize_weights({key: mx.array([0.75, 1.0])})
         self.assertEqual(result[key].tolist(), [0.75, 1.0])
+
+    def test_qwen35_norm_shift_does_not_depend_on_bfloat_mean_rounding(self):
+        key = "backbone_llm.model.language_model.layers.7.self_attn.q_norm.weight"
+        result = sanitize_weights({key: mx.array([0.5, 0.625], dtype=mx.bfloat16)})
+        mapped = "backbone_llm.language_model.layers.7.self_attn.q_norm.weight"
+        self.assertEqual(result[mapped].astype(mx.float32).tolist(), [1.5, 1.625])
+
+    def test_explicit_native_weight_correction(self):
+        key = "backbone_llm.language_model.norm.weight"
+        result = apply_native_weight_corrections(
+            {key: mx.array([1.0])},
+            {"mlx_native_weight_corrections": {"add_one": [key]}},
+        )
+        self.assertEqual(result[key].tolist(), [2.0])
+
+    def test_legacy_quantized_artifact_gets_known_norm_corrections(self):
+        key = "backbone_llm.language_model.layers.7.self_attn.q_norm.weight"
+        result = apply_native_weight_corrections(
+            {key: mx.array([0.5])},
+            {
+                "quantization": {"bits": 8, "group_size": 64},
+                "mlx_native_weight_corrections": {"add_one": [key]},
+            },
+        )
+        self.assertEqual(result[key].tolist(), [1.5])
 
 
 class NativeISTFTTests(unittest.TestCase):
@@ -65,6 +97,15 @@ class NativeISTFTTests(unittest.TestCase):
             where=envelope[None, :] > 1e-11,
         )[:, 720:-720]
         np.testing.assert_allclose(actual, expected, rtol=1e-5, atol=1e-6)
+
+
+class RedAEAttentionMaskTests(unittest.TestCase):
+    def test_sliding_window_matches_upstream_boundary(self):
+        mask = np.array(create_causal_mask(66, mx.float32, sliding_window=64))
+        self.assertEqual(mask[64, 64], 0.0)
+        self.assertEqual(mask[64, 1], 0.0)
+        self.assertTrue(np.isneginf(mask[64, 0]))
+        self.assertTrue(np.isneginf(mask[64, 65]))
 
 
 class LongAudioChunkingTests(unittest.TestCase):

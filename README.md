@@ -101,7 +101,7 @@ print("Answer:", res_qa.answer)
 
 # 3. Zero-shot Voice Cloning TTS (RTF ~ 0.75)
 audio_res = engine.tts(
-    prompt_text="收到你的来信，我很高兴。",
+    prompt_text="同时，他强调微调要科学有序。",
     prompt_audio="assets/examples/tts_zh_prompt.wav",
     target_text="你好，欢迎体验 FireRedAudio MLX 实时语音大模型！",
 )
@@ -132,7 +132,7 @@ python inference.py --task asr --audio assets/examples/asr_zh_fleurs.wav
 python inference.py --task understand --audio assets/examples/two_speakers.wav --prompt "这个音频中有几个说话人？" --enable-thinking
 
 # 3. 声音克隆 (TTS)
-python inference.py --task tts --prompt-audio assets/examples/tts_zh_prompt.wav --prompt-text "收到你的来信，我很高兴。" --target-text "你好，欢迎使用 MLX 原生版本！" --output outputs/tts_output.wav
+python inference.py --task tts --prompt-audio assets/examples/tts_zh_prompt.wav --prompt-text "同时，他强调微调要科学有序。" --target-text "你好，欢迎使用 MLX 原生版本！" --output outputs/tts_output.wav
 
 # 4. 语音编辑 (Acoustic / Semantic)
 python inference.py --task edit --audio assets/examples/edit_acoustic_zh_ref.wav --instruction "adjust the speed to 0.5" --edit-type acoustic --output outputs/edit_slow.wav
@@ -146,8 +146,11 @@ python inference.py --task voice_design --instruction "温柔清晰的播音女�
 ## 🧪 Testing & Verification
 
 ```bash
-# 运行单元与 API 测试套件 (19/19 项全部通过)
+# 运行单元与 API 测试套件（当前 24 项）
 .venv/bin/python -m unittest discover -s tests -v
+
+# 内容级生成回归：TTS + Voice Design，并用本项目 ASR 校验 CER
+.venv/bin/python scripts/test_generation_content_regression.py
 
 # 运行 10 连续任务队列与单实例内存压力测试
 .venv/bin/python scripts/test_webui_consecutive_stress.py
@@ -160,4 +163,3 @@ python inference.py --task voice_design --instruction "温柔清晰的播音女�
 - This project is released under the [Apache 2.0 License](LICENSE).
 - Based on [FireRedAudio](https://github.com/FireRedTeam/FireRedAudio) by Xiaohongshu FireRedTeam.
 - Powered by Apple [MLX](https://github.com/ml-explore/mlx) and [mlx-lm](https://github.com/ml-explore/mlx-examples/tree/main/llms/mlx_lm).
-

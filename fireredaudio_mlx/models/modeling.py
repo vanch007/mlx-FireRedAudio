@@ -67,7 +67,7 @@ def sanitize_weights(weights: Dict[str, mx.array]) -> Dict[str, mx.array]:
 
         if k.startswith("backbone_llm.language_model.") and k.endswith(
             qwen35_shifted_norm_suffixes
-        ) and float(mx.mean(v).item()) < 0.5:
+        ):
             v = v + 1.0
 
         # 2. Sequential indexing mappings
@@ -87,6 +87,45 @@ def sanitize_weights(weights: Dict[str, mx.array]) -> Dict[str, mx.array]:
 
         sanitized[k] = v
     return sanitized
+
+
+def apply_native_weight_corrections(
+    weights: Dict[str, mx.array], config: Dict[str, Any]
+) -> Dict[str, mx.array]:
+    """Apply explicit, auditable corrections for previously exported MLX weights."""
+    legacy_add_one_keys = (
+        "backbone_llm.language_model.layers.7.self_attn.q_norm.weight",
+        "backbone_llm.language_model.layers.11.self_attn.q_norm.weight",
+        "backbone_llm.language_model.layers.11.self_attn.k_norm.weight",
+        "backbone_llm.language_model.layers.15.self_attn.q_norm.weight",
+        "backbone_llm.language_model.layers.15.self_attn.k_norm.weight",
+        "backbone_llm.language_model.layers.19.self_attn.q_norm.weight",
+        "backbone_llm.language_model.layers.19.self_attn.k_norm.weight",
+        "backbone_llm.language_model.layers.23.self_attn.q_norm.weight",
+        "backbone_llm.language_model.layers.23.self_attn.k_norm.weight",
+        "backbone_llm.language_model.norm.weight",
+    )
+    explicit_add_one_keys = set(
+        config.get("mlx_native_weight_corrections", {}).get("add_one", [])
+    )
+    add_one_keys = set(explicit_add_one_keys)
+    # Quantized artifacts exported before the effective-scale marker used a
+    # BF16 mean heuristic and deterministically left these norms unshifted.
+    if (
+        config.get("quantization")
+        and config.get("qwen35_norm_format") != "effective_scale_v2"
+    ):
+        add_one_keys.update(key for key in legacy_add_one_keys if key in weights)
+    if not add_one_keys:
+        return weights
+    corrected = dict(weights)
+    for key in sorted(add_one_keys):
+        if key not in corrected and key in explicit_add_one_keys:
+            raise KeyError(f"native weight correction key is missing: {key}")
+        if key not in corrected:
+            continue
+        corrected[key] = corrected[key] + 1.0
+    return corrected
 
 
 class FireRedAudioModel(nn.Module):
@@ -120,7 +159,11 @@ class FireRedAudioModel(nn.Module):
     def load_weights(self, weights: Dict[str, mx.array]):
         """Load pretrained MLX safetensors dictionary into model parameters."""
         is_mlx_native = "quantization" in self.config or self.config.get("framework") == "mlx"
-        sanitized = weights if is_mlx_native else sanitize_weights(weights)
+        sanitized = (
+            apply_native_weight_corrections(weights, self.config)
+            if is_mlx_native
+            else sanitize_weights(weights)
+        )
         unflattened = tree_unflatten(list(sanitized.items()))
         self.update(unflattened)
         logger.info("Successfully updated model weights from %d tensors (is_mlx_native=%s)", len(weights), is_mlx_native)
@@ -325,9 +368,15 @@ class FireRedAudioModel(nn.Module):
         mode = "audio" if last_sosp_pos > last_eosp_pos else "text"
 
         if mode == "audio":
-            backbone_audio_hiddens = h[:, last_sosp_pos:]
+            # Keep every prefilled audio-span hidden except the final one.  The
+            # hybrid loop appends ``current_h`` below before the first DiT step;
+            # including it here duplicates the last conditioning frame and no
+            # longer matches the official FireRedAudio generation contract.
+            backbone_audio_hiddens = h[:, last_sosp_pos:-1]
         else:
-            backbone_audio_hiddens = mx.zeros((1, 0, 4096))
+            backbone_audio_hiddens = mx.zeros(
+                (1, 0, current_h.shape[-1]), dtype=current_h.dtype
+            )
 
         history_vae_latents = None
         if mode == "audio" and ref_vae_latents_list:
@@ -397,7 +446,9 @@ class FireRedAudioModel(nn.Module):
                         caches=caches,
                     )
                     mode = "text"
-                    backbone_audio_hiddens = mx.zeros((1, 0, 4096))
+                    backbone_audio_hiddens = mx.zeros(
+                        (1, 0, current_h.shape[-1]), dtype=current_h.dtype
+                    )
                 elif n_audio_steps >= effective_max_audio_steps:
                     break
 

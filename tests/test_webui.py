@@ -95,7 +95,7 @@ class WebUIAPITests(unittest.TestCase):
 
         voice_res = self.client.post("/api/v1/voices", json={
             "name": "播音员小红",
-            "prompt_text": "收到你的来信，我很高兴。",
+            "prompt_text": "同时，他强调微调要科学有序。",
             "audio_asset_id": asset["id"],
             "language": "zh",
             "description": "标准女声",

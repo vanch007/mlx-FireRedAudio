@@ -77,8 +77,12 @@ def apply_rope(x: mx.array, freqs: mx.array) -> mx.array:
     d_half = d // 2
     x1, x2 = x_rot[..., :d_half], x_rot[..., d_half:]
     x_rotated = mx.concatenate([-x2, x1], axis=-1)
-    cos = mx.cos(freqs)
-    sin = mx.sin(freqs)
+    # Transformers computes frequencies in FP32 but casts cos/sin back to the
+    # activation dtype before applying RoPE.  Keeping them in FP32 here silently
+    # promotes BF16 attention activations and accumulates large long-sequence
+    # drift across RedAE and the 32-layer backbone.
+    cos = mx.cos(freqs).astype(x.dtype)
+    sin = mx.sin(freqs).astype(x.dtype)
     x_out = (x_rot * cos) + (x_rotated * sin)
     if x_pass.shape[-1] > 0:
         x_out = mx.concatenate([x_out, x_pass], axis=-1)
