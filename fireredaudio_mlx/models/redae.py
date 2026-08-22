@@ -181,9 +181,10 @@ class ISTFTHeadMLX(nn.Module):
         log_mag = pred[..., :half_bins]
         phase = pred[..., half_bins:]
 
-        mag = mx.clip(mx.exp(log_mag), a_min=1e-6, a_max=100.0)
-        real = mag * mx.cos(phase)
-        imag = mag * mx.sin(phase)
+        log_mag_clamped = mx.clip(log_mag.astype(mx.float32), -15.0, 4.60517)
+        mag = mx.exp(log_mag_clamped)
+        real = (mag * mx.cos(phase.astype(mx.float32))).astype(pred.dtype)
+        imag = (mag * mx.sin(phase.astype(mx.float32))).astype(pred.dtype)
         return real, imag
 
     def decode_waveform(self, real: mx.array, imag: mx.array) -> mx.array:
@@ -201,16 +202,25 @@ class ISTFTHeadMLX(nn.Module):
             + mx.arange(n_fft, dtype=mx.int32)[None, :]
         )
         envelope_updates = mx.broadcast_to(mx.square(win), (T, n_fft))
+        nominal_envelope = 1.5
+        fade_len = min(240, hop // 2)
+        fade_in = 0.5 * (1.0 - mx.cos(mx.linspace(0.0, math.pi, fade_len)))
+        fade_out = fade_in[::-1]
         for b in range(B):
             y = mx.zeros((output_len,), dtype=mx.float32).at[positions].add(frames[b])
             window_sum = mx.zeros((output_len,), dtype=mx.float32).at[positions].add(
                 envelope_updates
             )
-            y = mx.where(window_sum > 1e-11, y / mx.maximum(window_sum, 1e-11), 0.0)
+            y = mx.where(window_sum > 1e-11, y / mx.maximum(window_sum, nominal_envelope), 0.0)
 
             pad = (n_fft - hop) // 2
             if output_len > 2 * pad:
                 y = y[pad:-pad]
+
+            if y.shape[0] > 2 * fade_len:
+                y_start = y[:fade_len] * fade_in
+                y_end = y[-fade_len:] * fade_out
+                y = mx.concatenate([y_start, y[fade_len:-fade_len], y_end], axis=0)
             audios.append(y)
 
         return mx.stack(audios, axis=0)

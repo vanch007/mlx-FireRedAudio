@@ -334,7 +334,8 @@ class FireRedAudioModel(nn.Module):
         min_new_audio_steps: int = 6,
         max_new_text_tokens: int = 512,
         n_timesteps: int = 10,
-        inference_cfg: float = 2.0,
+        inference_cfg: float = 1.5,
+        solver: str = "euler",
         eos_token_id: int = 248044,
     ) -> Tuple[List[int], np.ndarray, mx.array]:
         """Hybrid AR generation: text token sampling + continuous audio chunk DiT denoising."""
@@ -418,6 +419,7 @@ class FireRedAudioModel(nn.Module):
                     history_vae_latents=history_vae_latents,
                     n_timesteps=n_timesteps,
                     inference_cfg=inference_cfg,
+                    solver=solver,
                 )
                 generated_latents.append(one_vae_latents)
                 history_vae_latents = (

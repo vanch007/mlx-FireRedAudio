@@ -39,6 +39,18 @@ def content_error_rate(expected: str, actual: str) -> float:
     return edit_distance(expected, actual) / max(1, len(expected))
 
 
+def estimate_snr_db(audio: np.ndarray, sr: int = 24000) -> float:
+    frame_len = int(0.02 * sr)
+    frames = [audio[i : i + frame_len] for i in range(0, len(audio) - frame_len, frame_len)]
+    if not frames:
+        return 0.0
+    energies = [np.mean(f.astype(np.float64) ** 2) for f in frames]
+    sorted_e = np.sort(energies)
+    noise_floor = np.mean(sorted_e[: max(1, len(sorted_e) // 10)]) + 1e-12
+    signal_peak = np.mean(sorted_e[-max(1, len(sorted_e) // 10) :]) + 1e-12
+    return float(10.0 * np.log10(signal_peak / noise_floor))
+
+
 def validate_audio(audio: np.ndarray, sample_rate: int, label: str) -> float:
     duration = len(audio) / sample_rate
     if not np.isfinite(audio).all() or np.max(np.abs(audio)) <= 0 or not 0.5 <= duration <= 30:
@@ -70,6 +82,7 @@ def main() -> None:
     tts_path = output_dir / "regression_tts_content.wav"
     sf.write(tts_path, tts.audio, tts.sample_rate, subtype="PCM_16")
     tts_duration = validate_audio(tts.audio, tts.sample_rate, "tts")
+    tts_snr = estimate_snr_db(tts.audio, tts.sample_rate)
     tts_transcript = engine.understand(
         str(tts_path), task="asr", max_new_tokens=120, num_beams=1
     ).answer
@@ -81,6 +94,7 @@ def main() -> None:
         "transcript": tts_transcript,
         "cer": round(tts_cer, 4),
         "duration_s": round(tts_duration, 2),
+        "snr_db": round(tts_snr, 2),
         "output": str(tts_path),
     }
 
@@ -97,6 +111,7 @@ def main() -> None:
     voice_path = output_dir / "regression_voice_design_content.wav"
     sf.write(voice_path, voice.audio, voice.sample_rate, subtype="PCM_16")
     voice_duration = validate_audio(voice.audio, voice.sample_rate, "voice_design")
+    voice_snr = estimate_snr_db(voice.audio, voice.sample_rate)
     voice_transcript = engine.understand(
         str(voice_path), task="asr", max_new_tokens=120, num_beams=1
     ).answer
@@ -110,6 +125,7 @@ def main() -> None:
         "transcript": voice_transcript,
         "cer": round(voice_cer, 4),
         "duration_s": round(voice_duration, 2),
+        "snr_db": round(voice_snr, 2),
         "timbre": voice.text,
         "output": str(voice_path),
     }
