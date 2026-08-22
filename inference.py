@@ -24,9 +24,11 @@ Commands:
 """
 
 import argparse
+import json
 import logging
 import os
 import sys
+import time
 import soundfile as sf
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -107,6 +109,7 @@ def main():
     elif args.task == "tts":
         if not args.prompt_audio or not args.prompt_text or not args.target_text:
             raise SystemExit("--task tts requires --prompt-audio, --prompt-text, and --target-text")
+        t0 = time.time()
         res = engine.tts(
             prompt_text=args.prompt_text,
             prompt_audio=args.prompt_audio,
@@ -118,15 +121,19 @@ def main():
             n_timesteps=args.n_timesteps,
             inference_cfg=args.inference_cfg,
         )
+        elapsed = time.time() - t0
         out_wav = args.output or "outputs/tts_output.wav"
         os.makedirs(os.path.dirname(out_wav) if os.path.dirname(out_wav) else ".", exist_ok=True)
         sf.write(out_wav, res.audio, res.sample_rate, subtype="PCM_16")
         dur = len(res.audio) / res.sample_rate
-        logger.info("Saved synthesized audio to %s (duration: %.2fs)", out_wav, dur)
+        rtf = elapsed / dur if dur > 0 else 0.0
+        logger.info("Saved synthesized audio to %s (duration: %.2fs, rtf: %.4f)", out_wav, dur, rtf)
+        print(json.dumps({"task": "tts", "elapsed_s": round(elapsed, 4), "duration_s": round(dur, 4), "real_time_factor": round(rtf, 4)}))
 
     elif args.task == "edit":
         if not args.audio or not args.instruction:
             raise SystemExit("--task edit requires --audio and --instruction")
+        t0 = time.time()
         res = engine.edit(
             audio_path=args.audio[0],
             instruction=args.instruction,
@@ -137,17 +144,22 @@ def main():
             n_timesteps=args.n_timesteps,
             inference_cfg=args.inference_cfg,
         )
+        elapsed = time.time() - t0
         out_wav = args.output or f"outputs/edit_{args.edit_type}.wav"
         os.makedirs(os.path.dirname(out_wav) if os.path.dirname(out_wav) else ".", exist_ok=True)
         sf.write(out_wav, res.audio, res.sample_rate, subtype="PCM_16")
         if res.text:
             print("===== Edited Text =====")
             print(res.text)
-        logger.info("Saved edited audio to %s (duration: %.2fs)", out_wav, len(res.audio) / res.sample_rate)
+        dur = len(res.audio) / res.sample_rate
+        rtf = elapsed / dur if dur > 0 else 0.0
+        logger.info("Saved edited audio to %s (duration: %.2fs, rtf: %.4f)", out_wav, dur, rtf)
+        print(json.dumps({"task": "edit", "elapsed_s": round(elapsed, 4), "duration_s": round(dur, 4), "real_time_factor": round(rtf, 4)}))
 
     elif args.task == "voice_design":
         if not args.instruction or not args.text:
             raise SystemExit("--task voice_design requires --instruction and --text")
+        t0 = time.time()
         res = engine.voice_design(
             instruction=args.instruction,
             text=args.text,
@@ -157,13 +169,17 @@ def main():
             n_timesteps=args.n_timesteps,
             inference_cfg=args.inference_cfg,
         )
+        elapsed = time.time() - t0
         out_wav = args.output or "outputs/voice_design.wav"
         os.makedirs(os.path.dirname(out_wav) if os.path.dirname(out_wav) else ".", exist_ok=True)
         sf.write(out_wav, res.audio, res.sample_rate, subtype="PCM_16")
         if res.text:
             print("===== Timbre Description =====")
             print(res.text)
-        logger.info("Saved voice design audio to %s (duration: %.2fs)", out_wav, len(res.audio) / res.sample_rate)
+        dur = len(res.audio) / res.sample_rate
+        rtf = elapsed / dur if dur > 0 else 0.0
+        logger.info("Saved voice design audio to %s (duration: %.2fs, rtf: %.4f)", out_wav, dur, rtf)
+        print(json.dumps({"task": "voice_design", "elapsed_s": round(elapsed, 4), "duration_s": round(dur, 4), "real_time_factor": round(rtf, 4)}))
 
 
 if __name__ == "__main__":

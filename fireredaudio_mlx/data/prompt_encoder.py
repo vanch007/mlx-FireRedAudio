@@ -100,9 +100,11 @@ def build_voice_design_prompt(
     text: str,
     audio_no_latent_token: str = "<|AUDIO_NO_LATENT|>",
 ) -> str:
+    prompt_body = f"{instruction}\n\n根据上述音色描述，合成以下文本对应的音频：\n{text}"
     return _chatml(
         GENERIC_SYSTEM_PROMPT,
-        f"{instruction}\n\n根据上述音色描述，合成以下文本对应的音频：\n{text}",
+        prompt_body,
+        assistant_prefix="<|sosp|>",
     )
 
 
