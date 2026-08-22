@@ -18,7 +18,7 @@ def run_bench():
     results = {"profile": "m3_max_balanced", "flow_timesteps": 4}
 
     t0 = time.time()
-    engine = FireRedAudioInference(model_path="models/FireRedAudio")
+    engine = FireRedAudioInference(model_path="models/FireRedAudio-8bit")
     load_time = engine.load_time
     print(f"MLX Model Loaded in {load_time:.4f}s", flush=True)
     results["model_load_time_seconds"] = round(load_time, 4)
@@ -57,7 +57,7 @@ def run_bench():
     # 3. Zero-shot TTS Voice Cloning
     print("\n[3/6] Testing Zero-shot TTS Voice Cloning (RedAE -> Backbone -> DiT -> RedAE Decoder)...", flush=True)
     prompt_audio = "assets/examples/tts_zh_prompt.wav"
-    prompt_text = "收到你的来信，我很高兴。"
+    prompt_text = "同时，他强调微调要科学有序。"
     target_text = "你好，这是使用独立 mlx-FireRedAudio 项目在苹果芯片上运行的原生声音克隆测试。"
     t0 = time.time()
     res_tts = engine.tts(

@@ -8,6 +8,22 @@ import mlx.nn as nn
 from .backbone import RMSNorm, SwiGLU, apply_rope
 
 
+def create_causal_mask(
+    seq_len: int,
+    dtype: mx.Dtype,
+    sliding_window: Optional[int] = None,
+) -> mx.array:
+    """Build the causal mask used by the upstream Qwen3 RedAE modules."""
+    query_index = mx.arange(seq_len)[:, None]
+    key_index = mx.arange(seq_len)[None, :]
+    allowed = key_index <= query_index
+    if sliding_window is not None:
+        # Transformers uses ``kv_idx > q_idx - sliding_window``.  A window of
+        # 64 therefore contains the current frame and the 63 preceding frames.
+        allowed = allowed & (key_index > query_index - sliding_window)
+    return mx.where(allowed, mx.array(0.0, dtype=dtype), mx.array(-float("inf"), dtype=dtype))
+
+
 class Qwen3SelfAttention(nn.Module):
     def __init__(
         self,
@@ -15,7 +31,7 @@ class Qwen3SelfAttention(nn.Module):
         num_heads: int = 14,
         num_kv_heads: int = 2,
         head_dim: int = 128,
-        rope_theta: float = 1000000.0,
+        rope_theta: float = 10000.0,
     ):
         super().__init__()
         self.hidden_size = hidden_size
@@ -122,9 +138,11 @@ class Qwen3AudioBackbone(nn.Module):
         num_hidden_layers: int = 18,
         num_heads: int = 14,
         num_kv_heads: int = 2,
+        sliding_window: Optional[int] = None,
     ):
         super().__init__()
         self.embed_tokens = nn.Embedding(151936, hidden_size)
+        self.sliding_window = sliding_window
         self.layers = [
             Qwen3DecoderLayer(
                 hidden_size=hidden_size,
@@ -138,8 +156,11 @@ class Qwen3AudioBackbone(nn.Module):
 
     def __call__(self, x: mx.array, mask: Optional[mx.array] = None) -> mx.array:
         if mask is None and x.shape[1] > 1:
-            # Qwen3Model is a causal decoder even when used inside RedAE.
-            mask = nn.MultiHeadAttention.create_additive_causal_mask(x.shape[1]).astype(x.dtype)
+            mask = create_causal_mask(
+                x.shape[1],
+                dtype=x.dtype,
+                sliding_window=self.sliding_window,
+            )
         for layer in self.layers:
             x, _ = layer(x, mask=mask)
         x = self.norm(x)
@@ -218,6 +239,7 @@ class RedAEDecoderMLX(nn.Module):
             num_hidden_layers=num_layers,
             num_heads=num_heads,
             num_kv_heads=num_kv_heads,
+            sliding_window=64,
         )
 
         self.istft_head = ISTFTHeadMLX(
@@ -285,6 +307,7 @@ class RedAEEncoderMLX(nn.Module):
             hidden_size=hidden_size,
             intermediate_size=intermediate_size,
             num_hidden_layers=num_layers,
+            sliding_window=64,
         )
         self.downsample = RedAEDownsample(
             hidden_size=hidden_size,
@@ -299,7 +322,11 @@ class RedAEEncoderMLX(nn.Module):
             return mx.zeros((1, 0, 64))
 
         patches = audio[: n_patches * self.audio_patch_size].reshape(1, n_patches, self.audio_patch_size)
-        x = mx.array(patches, dtype=mx.float32)
+        # The upstream generation encoder receives BF16 padded audio and keeps
+        # the complete RedAE -> patch encoder -> DiT path in the model dtype.
+        # Feeding FP32 here promotes every downstream activation and changes the
+        # flow-matching trajectory enough to corrupt generation semantics.
+        x = mx.array(patches, dtype=self.in_proj.layers[0].weight.dtype)
 
         # The pretrained RedAE encoder uses two consecutive linear projections
         # with no activation between them (matching torch.nn.Sequential in the

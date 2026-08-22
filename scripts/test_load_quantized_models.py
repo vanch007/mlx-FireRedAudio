@@ -28,7 +28,7 @@ def test_quantized_models_from_disk():
     # Run TTS
     t0 = time.time()
     res_tts = engine_8bit.tts(
-        prompt_text="收到你的来信，我很高兴。",
+        prompt_text="同时，他强调微调要科学有序。",
         prompt_audio="assets/examples/tts_zh_prompt.wav",
         target_text="你好，这是直接从磁盘加载的八比特量化模型语音合成。",
         n_timesteps=4,
@@ -56,7 +56,7 @@ def test_quantized_models_from_disk():
 
     t0 = time.time()
     res_tts_4 = engine_4bit.tts(
-        prompt_text="收到你的来信，我很高兴。",
+        prompt_text="同时，他强调微调要科学有序。",
         prompt_audio="assets/examples/tts_zh_prompt.wav",
         target_text="你好，这是直接从磁盘加载的四比特量化模型语音合成。",
         n_timesteps=4,
