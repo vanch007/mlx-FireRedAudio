@@ -1,0 +1,36 @@
+# Virtual Environment
+.venv/
+env/
+venv/
+
+# Model Weights (Safetensors - Hosted on Hugging Face)
+/models/
+*.safetensors
+*.bin
+
+# Python cache & build
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+/dist/
+build/
+
+# Frontend dependencies
+node_modules/
+fireredaudio_mlx/webui/frontend/node_modules/
+
+# Local outputs & artifacts
+outputs/
+workspace/
+*.log
+quant_results.txt
+test_weights.safetensors
+benchmark_results.json
+
+# System & IDE
+.DS_Store
+.vscode/
+.idea/

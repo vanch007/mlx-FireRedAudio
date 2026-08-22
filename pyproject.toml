@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mlx-fireredaudio"
+version = "0.1.0"
+description = "FireRedAudio on Apple Silicon Metal with MLX: ASR, Audio Understanding, TTS, Speech Editing, and Voice Design"
+readme = "README.md"
+authors = [{ name = "vanch" }]
+requires-python = ">=3.10"
+dependencies = [
+    "mlx>=0.30.0",
+    "mlx-lm>=0.31.1",
+    "transformers>=4.48.0",
+    "soundfile>=0.12.1",
+    "numpy>=1.24.0",
+    "einops>=0.8.0",
+    "scipy>=1.11.0",
+    "tqdm>=4.66.0",
+    "sentencepiece>=0.2.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "sse-starlette>=2.1.0",
+    "pydantic>=2.10.0",
+    "python-multipart>=0.0.18",
+    "aiofiles>=24.1.0",
+]
+
+[project.optional-dependencies]
+webui = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "sse-starlette>=2.1.0",
+    "pydantic>=2.10.0",
+    "python-multipart>=0.0.18",
+    "aiofiles>=24.1.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["fireredaudio_mlx*"]
