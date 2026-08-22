@@ -257,7 +257,8 @@ class RedDiTMLX(nn.Module):
         backbone_output: mx.array,
         history_vae_latents: Optional[mx.array] = None,
         n_timesteps: int = 10,
-        inference_cfg: float = 2.0,
+        inference_cfg: float = 1.5,
+        solver: str = "euler",
     ) -> mx.array:
         b = backbone_output.shape[0]
         model_dtype = backbone_output.dtype
@@ -282,28 +283,38 @@ class RedDiTMLX(nn.Module):
         noise = mx.random.normal(
             (b, self.patch_size, self.vae_channels)
         ).astype(history_vae_latents.dtype)
-        x0 = mx.concatenate([history_vae_latents[:, -8:], noise], axis=1)
+        history_slice = history_vae_latents[:, -8:]
 
-        xt = mx.concatenate([x0, dit_cond], axis=-1)
-        xt_cfg = mx.concatenate([x0, mx.zeros_like(dit_cond)], axis=-1)
-        xt_in = mx.concatenate([xt, xt_cfg], axis=0)
+        def get_v_guided(cur_x: mx.array, t_val: mx.array) -> mx.array:
+            x_full = mx.concatenate([history_slice, cur_x], axis=1)
+            xt_in = mx.concatenate([
+                mx.concatenate([x_full, dit_cond], axis=-1),
+                mx.concatenate([x_full, mx.zeros_like(dit_cond)], axis=-1),
+            ], axis=0)
+            t_in = mx.repeat(t_val, b * 2, axis=0)
+            t_emb = self.t_embedder(t_in)
+            vt = self._compiled_forward(xt_in, t_emb)[:, 8:]
+            vt_cond, vt_cfg = vt[:b], vt[b:]
+            return (1.0 + inference_cfg) * vt_cond - inference_cfg * vt_cfg
 
+        cur_patch = noise
         for step in range(n_timesteps):
             t = t_span[step : step + 1]
             dt = (t_span[step + 1] - t_span[step]).item()
-            t_in = mx.repeat(t, b * 2, axis=0)
-            t_emb = self.t_embedder(t_in)
+            if solver == "midpoint":
+                t_mid = (t + t_span[step + 1 : step + 2]) * 0.5
+                v1 = get_v_guided(cur_patch, t)
+                x_mid = cur_patch + (0.5 * dt) * v1
+                v2 = get_v_guided(x_mid, t_mid)
+                cur_patch = cur_patch + dt * v2
+            elif solver == "heun":
+                t_next = t_span[step + 1 : step + 2]
+                v1 = get_v_guided(cur_patch, t)
+                x_pred = cur_patch + dt * v1
+                v2 = get_v_guided(x_pred, t_next)
+                cur_patch = cur_patch + (0.5 * dt) * (v1 + v2)
+            else:
+                v = get_v_guided(cur_patch, t)
+                cur_patch = cur_patch + dt * v
 
-            vt = self._compiled_forward(xt_in, t_emb)
-            vt = vt[:, 8:]
-            vt_cond, vt_cfg = vt[:b], vt[b:]
-            vt_guided = (1.0 + inference_cfg) * vt_cond - inference_cfg * vt_cfg
-
-            cur_patch = xt_in[:b, -self.patch_size:, :self.vae_channels] + dt * vt_guided
-            updated_x0 = mx.concatenate([xt_in[:b, :-self.patch_size, :self.vae_channels], cur_patch], axis=1)
-            xt_in = mx.concatenate([
-                mx.concatenate([updated_x0, dit_cond], axis=-1),
-                mx.concatenate([updated_x0, mx.zeros_like(dit_cond)], axis=-1),
-            ], axis=0)
-
-        return xt_in[:b, -self.patch_size:, :self.vae_channels]
+        return cur_patch

@@ -310,7 +310,8 @@ class JobQueue:
                 raise FileNotFoundError(f"找不到参考音频素材: {prompt_audio_id}")
 
             n_timesteps = int(p.get("n_timesteps", 4))
-            inference_cfg = float(p.get("inference_cfg", 2.0))
+            inference_cfg = float(p.get("inference_cfg", 1.5))
+            solver = str(p.get("solver", "euler"))
             max_new_audio_steps = int(p.get("max_new_audio_steps", 750))
 
             res = engine.tts(
@@ -320,6 +321,7 @@ class JobQueue:
                 language=language,
                 n_timesteps=n_timesteps,
                 inference_cfg=inference_cfg,
+                solver=solver,
                 min_new_audio_steps=0,
                 max_new_audio_steps=max_new_audio_steps,
             )
@@ -358,7 +360,8 @@ class JobQueue:
                 instruction = "adjust the speed to 1.0"
 
             n_timesteps = int(p.get("n_timesteps", 4))
-            inference_cfg = float(p.get("inference_cfg", 2.0))
+            inference_cfg = float(p.get("inference_cfg", 1.5))
+            solver = str(p.get("solver", "euler"))
             max_new_audio_steps = int(p.get("max_new_audio_steps", 750))
 
             res = engine.edit(
@@ -367,6 +370,7 @@ class JobQueue:
                 edit_type="acoustic",
                 n_timesteps=n_timesteps,
                 inference_cfg=inference_cfg,
+                solver=solver,
                 min_new_audio_steps=0,
                 max_new_audio_steps=max_new_audio_steps,
             )
@@ -384,7 +388,8 @@ class JobQueue:
                 raise ValueError("语义编辑需要指定修改指令 (如 delete '...' 或 replace 'A' with 'B')。")
 
             n_timesteps = int(p.get("n_timesteps", 4))
-            inference_cfg = float(p.get("inference_cfg", 2.0))
+            inference_cfg = float(p.get("inference_cfg", 1.5))
+            solver = str(p.get("solver", "euler"))
             max_new_audio_steps = int(p.get("max_new_audio_steps", 750))
             max_new_text_tokens = max(int(p.get("max_new_text_tokens", 512)), 512)
 
@@ -394,6 +399,7 @@ class JobQueue:
                 edit_type="semantic",
                 n_timesteps=n_timesteps,
                 inference_cfg=inference_cfg,
+                solver=solver,
                 min_new_audio_steps=0,
                 max_new_audio_steps=max_new_audio_steps,
                 max_new_text_tokens=max_new_text_tokens,
@@ -412,7 +418,8 @@ class JobQueue:
                 raise ValueError("音色设计需要提供音色描述指令和目标合成文本。")
 
             n_timesteps = int(p.get("n_timesteps", 4))
-            inference_cfg = float(p.get("inference_cfg", 2.0))
+            inference_cfg = float(p.get("inference_cfg", 1.5))
+            solver = str(p.get("solver", "euler"))
             max_new_audio_steps = int(p.get("max_new_audio_steps", 750))
             max_new_text_tokens = max(int(p.get("max_new_text_tokens", 512)), 512)
 
@@ -421,6 +428,7 @@ class JobQueue:
                 text=text,
                 n_timesteps=n_timesteps,
                 inference_cfg=inference_cfg,
+                solver=solver,
                 min_new_audio_steps=0,
                 max_new_audio_steps=max_new_audio_steps,
                 max_new_text_tokens=max_new_text_tokens,

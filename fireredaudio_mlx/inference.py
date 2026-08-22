@@ -226,7 +226,8 @@ class FireRedAudioInference:
         min_new_audio_steps: int = 6,
         max_new_text_tokens: int = 512,
         n_timesteps: int = 10,
-        inference_cfg: float = 2.0,
+        inference_cfg: float = 1.5,
+        solver: str = "euler",
     ) -> AudioOutput:
         """Zero-shot TTS voice cloning via MLX hybrid AR generation."""
         input_chatml = build_tts_prompt(
@@ -254,6 +255,7 @@ class FireRedAudioInference:
             max_new_text_tokens=max_new_text_tokens,
             n_timesteps=n_timesteps,
             inference_cfg=inference_cfg,
+            solver=solver,
             eos_token_id=self._eos_id,
         )
 
@@ -275,7 +277,8 @@ class FireRedAudioInference:
         min_new_audio_steps: int = 6,
         max_new_text_tokens: int = 512,
         n_timesteps: int = 10,
-        inference_cfg: float = 2.0,
+        inference_cfg: float = 1.5,
+        solver: str = "euler",
     ) -> AudioOutput:
         """Speech editing in MLX."""
         input_chatml = build_edit_prompt(
@@ -302,6 +305,7 @@ class FireRedAudioInference:
             max_new_text_tokens=max_new_text_tokens,
             n_timesteps=n_timesteps,
             inference_cfg=inference_cfg,
+            solver=solver,
             eos_token_id=self._eos_id,
         )
 
@@ -324,7 +328,8 @@ class FireRedAudioInference:
         min_new_audio_steps: int = 6,
         max_new_text_tokens: int = 512,
         n_timesteps: int = 10,
-        inference_cfg: float = 2.0,
+        inference_cfg: float = 1.5,
+        solver: str = "euler",
     ) -> AudioOutput:
         """Speech synthesis guided by natural language timbre description in MLX."""
         input_chatml = build_voice_design_prompt(
@@ -344,6 +349,7 @@ class FireRedAudioInference:
             max_new_text_tokens=max_new_text_tokens,
             n_timesteps=n_timesteps,
             inference_cfg=inference_cfg,
+            solver=solver,
             eos_token_id=self._eos_id,
         )
 

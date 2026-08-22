@@ -92,10 +92,15 @@ class NativeISTFTTests(unittest.TestCase):
             envelope[start : start + 1920] += window**2
         expected = np.divide(
             expected,
-            envelope[None, :],
+            np.maximum(envelope[None, :], 1.5),
             out=np.zeros_like(expected),
             where=envelope[None, :] > 1e-11,
         )[:, 720:-720]
+        fade_len = 240
+        fade_in = 0.5 * (1.0 - np.cos(np.linspace(0.0, np.pi, fade_len)))
+        fade_out = fade_in[::-1]
+        expected[:, :fade_len] *= fade_in
+        expected[:, -fade_len:] *= fade_out
         np.testing.assert_allclose(actual, expected, rtol=1e-5, atol=1e-6)
 
 
