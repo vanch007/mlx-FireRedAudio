@@ -139,7 +139,7 @@ class Qwen3AudioBackbone(nn.Module):
     def __call__(self, x: mx.array, mask: Optional[mx.array] = None) -> mx.array:
         if mask is None and x.shape[1] > 1:
             # Qwen3Model is a causal decoder even when used inside RedAE.
-            mask = nn.MultiHeadAttention.create_additive_causal_mask(x.shape[1])
+            mask = nn.MultiHeadAttention.create_additive_causal_mask(x.shape[1]).astype(x.dtype)
         for layer in self.layers:
             x, _ = layer(x, mask=mask)
         x = self.norm(x)

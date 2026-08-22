@@ -339,7 +339,7 @@ class Qwen3_5LanguageModel(nn.Module):
 
         T = x.shape[1]
         if mask is None and T > 1:
-            mask = nn.MultiHeadAttention.create_additive_causal_mask(T)
+            mask = nn.MultiHeadAttention.create_additive_causal_mask(T).astype(x.dtype)
 
         new_caches = []
         for i, layer in enumerate(self.layers):
