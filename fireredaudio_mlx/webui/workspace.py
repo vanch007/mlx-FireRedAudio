@@ -96,6 +96,26 @@ class WorkspaceStore:
                 "file_size": file_path.stat().st_size,
             }
         except Exception:
+            try:
+                cmd = [
+                    "ffprobe", "-v", "error", "-show_entries",
+                    "format=duration:stream=sample_rate,channels",
+                    "-of", "json", str(file_path)
+                ]
+                out = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+                probe = json.loads(out)
+                dur = float(probe.get("format", {}).get("duration", 0.0))
+                streams = probe.get("streams", [{}])
+                sr = int(streams[0].get("sample_rate", 16000)) if streams else 16000
+                ch = int(streams[0].get("channels", 1)) if streams else 1
+                return {
+                    "duration": round(dur, 2),
+                    "sample_rate": sr,
+                    "channels": ch,
+                    "file_size": file_path.stat().st_size if file_path.exists() else 0,
+                }
+            except Exception:
+                pass
             return {
                 "duration": 0.0,
                 "sample_rate": 0,

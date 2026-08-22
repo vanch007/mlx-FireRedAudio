@@ -138,6 +138,7 @@ class FireRedAudioModel(nn.Module):
         top_k: int = 20,
         top_p: float = 0.8,
         num_beams: int = 1,
+        repetition_penalty: float = 1.15,
         eos_token_id: int = 248044,
     ) -> List[int]:
         """Autoregressive text generation for ASR and Audio Understanding."""
@@ -196,6 +197,18 @@ class FireRedAudioModel(nn.Module):
         generated_tokens = []
         for _ in range(max_new_tokens):
             logits = self.backbone_llm.lm_head(current_h[:, -1, :])
+            if repetition_penalty != 1.0 and len(generated_tokens) > 0:
+                recent_tokens = list(set(generated_tokens[-64:]))
+                if recent_tokens:
+                    indices = mx.array([recent_tokens])
+                    selected_logits = mx.take_along_axis(logits, indices, axis=-1)
+                    penalized = mx.where(
+                        selected_logits < 0,
+                        selected_logits * repetition_penalty,
+                        selected_logits / repetition_penalty,
+                    )
+                    logits = mx.put_along_axis(logits, indices, penalized, axis=-1)
+
             if temperature > 0.0:
                 next_token = sample_top_k_top_p(logits, temperature, top_k, top_p)
             else:
@@ -312,7 +325,7 @@ class FireRedAudioModel(nn.Module):
         mode = "audio" if last_sosp_pos > last_eosp_pos else "text"
 
         if mode == "audio":
-            backbone_audio_hiddens = h[:, last_sosp_pos:-1]
+            backbone_audio_hiddens = h[:, last_sosp_pos:]
         else:
             backbone_audio_hiddens = mx.zeros((1, 0, 4096))
 
